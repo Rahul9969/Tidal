@@ -10,9 +10,15 @@ from groq import Groq
 
 class VisionService:
     def __init__(self):
-        # We load a lightweight YOLO model
+        # Use our newly trained coastal debris weights!
         try:
-            self.model = YOLO('yolov8n.pt') 
+            custom_weights = os.path.join(os.path.dirname(__file__), "..", "runs", "detect", "runs", "detect", "marine_debris_model", "weights", "best.pt")
+            if os.path.exists(custom_weights):
+                print(f"Loading custom fine-tuned YOLO model: {custom_weights}")
+                self.model = YOLO(custom_weights)
+            else:
+                print("Loading base YOLOv8n model...")
+                self.model = YOLO('yolov8n.pt') 
         except Exception as e:
             self.model = None
 

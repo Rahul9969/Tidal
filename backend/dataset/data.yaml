@@ -1,0 +1,9 @@
+path: d:/tidal_v2/backend/dataset
+train: images/train
+val: images/train
+
+names:
+  0: PET Bottle
+  1: HDPE Jug
+  2: Nylon Ghost Net
+  3: Mixed Plastic
