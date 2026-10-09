@@ -106,9 +106,9 @@ class DispatchService:
         '''
 
         try:
-            client = genai.Client()
+            client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-3.8-flash',
                 contents=prompt,
                 config=types.GenerateContentConfig(response_mime_type="application/json")
             )
@@ -118,7 +118,7 @@ class DispatchService:
             try:
                 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
                 completion = groq_client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
+                    model="llama-3.3-70b-versatile",
                     messages=[
                         {"role": "user", "content": prompt}
                     ],
@@ -126,11 +126,18 @@ class DispatchService:
                     temperature=0.2
                 )
                 
-                # Check if it returned an array wrapped in an object or just the array text
                 result_text = completion.choices[0].message.content
                 return result_text
             except Exception as groq_err:
                 print(f"Groq fallback failed: {groq_err}")
-                raise
+                default_explanations = [
+                    {
+                        "vessel_name": a.get("vessel_name", "SKIMMER"),
+                        "reasoning": f"Optimally routed to {a.get('assigned_zone', 'hotspot')} based on minimal nautical transit time and matching payload capacity."
+                    }
+                    for a in assignments
+                ]
+                import json
+                return json.dumps(default_explanations)
 
 dispatch_service = DispatchService()

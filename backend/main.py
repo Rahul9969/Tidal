@@ -407,7 +407,7 @@ async def chat_with_data(chat: ChatMessage):
     }
     
     try:
-        client = genai.Client()
+        client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
         system_instruction = f"""
         You are Ocean-GPT, the maritime tactical intelligence copilot for the TIDAL platform.
         You monitor marine debris accumulation, hydrodynamic Monte Carlo drift, and autonomous fleet cleanup across the Greater Mumbai coastline.
@@ -415,7 +415,7 @@ async def chat_with_data(chat: ChatMessage):
         Provide direct, technical, concise answers explaining risk factors, arrival times, and fleet recommendations.
         """
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.8-flash',
             contents=chat.message,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
