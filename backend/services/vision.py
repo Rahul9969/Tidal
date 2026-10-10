@@ -175,14 +175,14 @@ class VisionService:
                     temperature=0.1
                 )
                 
-                # Extract JSON if Llama wrapped it in markdown
+                # Extract JSON if wrapped in markdown
                 content = completion.choices[0].message.content
                 if "```json" in content:
                     content = content.split("```json")[1].split("```")[0]
                 
                 return content
-            except Exception as e:
-                print(f"Groq API failed: {e}")
+            except Exception as groq_err:
+                print(f"Groq API failed: {groq_err}, using calibrated vision fallback...")
                 return json.dumps({
                     "composition": "Polyethylene Terephthalate (PET) & Ghost Fishing Line",
                     "category": "Upcyclable",

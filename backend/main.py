@@ -413,32 +413,33 @@ async def chat_with_data(chat: ChatMessage):
     Provide direct, technical, concise answers explaining risk factors, arrival times, and fleet recommendations.
     """
     
+    # Primary: Groq with openai/gpt-oss-120b (300ms latency, high quota)
     try:
-        client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-        response = client.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=chat.message,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                temperature=0.3
-            )
+        groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+        completion = groq_client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": chat.message}
+            ],
+            temperature=0.3
         )
-        return {"response": response.text}
-    except Exception as gemini_err:
-        print(f"Gemini chat failed: {gemini_err}, attempting Groq fallback...")
+        return {"response": completion.choices[0].message.content}
+    except Exception as groq_err:
+        print(f"Groq chat failed: {groq_err}, trying Gemini...")
         try:
-            groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-            completion = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": chat.message}
-                ],
-                temperature=0.3
+            client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+            response = client.models.generate_content(
+                model='gemini-3.8-flash',
+                contents=chat.message,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    temperature=0.3
+                )
             )
-            return {"response": completion.choices[0].message.content}
-        except Exception as groq_err:
-            print(f"Groq chat fallback failed: {groq_err}")
+            return {"response": response.text}
+        except Exception as gemini_err:
+            print(f"Gemini chat fallback failed: {gemini_err}")
             # Context-rich offline fallback
             msg_lower = chat.message.lower()
             if "juhu" in msg_lower:

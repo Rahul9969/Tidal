@@ -105,31 +105,34 @@ class DispatchService:
         Return a JSON array of objects with "vessel_name" and "reasoning" keys.
         '''
 
+        # Primary: Groq with openai/gpt-oss-120b (lightning-fast, no 20 req/day quota)
         try:
-            client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-            response = client.models.generate_content(
-                model='gemini-3.8-flash',
-                contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json")
+            groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+            completion = groq_client.chat.completions.create(
+                model="openai/gpt-oss-120b",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2
             )
-            return response.text
-        except Exception as gemini_err:
-            print(f"Gemini dispatch explanation failed, falling back to Groq: {gemini_err}")
+            result_text = completion.choices[0].message.content
+            if "```json" in result_text:
+                result_text = result_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in result_text:
+                result_text = result_text.split("```")[1].split("```")[0].strip()
+            return result_text
+        except Exception as groq_err:
+            print(f"Groq dispatch explanation failed: {groq_err}, trying Gemini...")
             try:
-                groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-                completion = groq_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[
-                        {"role": "user", "content": prompt}
-                    ],
-                    response_format={"type": "json_object"},
-                    temperature=0.2
+                client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+                response = client.models.generate_content(
+                    model='gemini-3.8-flash',
+                    contents=prompt,
+                    config=types.GenerateContentConfig(response_mime_type="application/json")
                 )
-                
-                result_text = completion.choices[0].message.content
-                return result_text
-            except Exception as groq_err:
-                print(f"Groq fallback failed: {groq_err}")
+                return response.text
+            except Exception as gemini_err:
+                print(f"Gemini fallback failed: {gemini_err}")
                 default_explanations = [
                     {
                         "vessel_name": a.get("vessel_name", "SKIMMER"),
