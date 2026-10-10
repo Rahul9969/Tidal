@@ -406,14 +406,15 @@ async def chat_with_data(chat: ChatMessage):
         "model_accuracy": accuracy.get("average_accuracy_pct", 93.5)
     }
     
+    system_instruction = f"""
+    You are Ocean-GPT, the maritime tactical intelligence copilot for the TIDAL platform.
+    You monitor marine debris accumulation, hydrodynamic Monte Carlo drift, and autonomous fleet cleanup across the Greater Mumbai coastline.
+    Live System Context: {json.dumps(context)}
+    Provide direct, technical, concise answers explaining risk factors, arrival times, and fleet recommendations.
+    """
+    
     try:
         client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-        system_instruction = f"""
-        You are Ocean-GPT, the maritime tactical intelligence copilot for the TIDAL platform.
-        You monitor marine debris accumulation, hydrodynamic Monte Carlo drift, and autonomous fleet cleanup across the Greater Mumbai coastline.
-        Live System Context: {json.dumps(context)}
-        Provide direct, technical, concise answers explaining risk factors, arrival times, and fleet recommendations.
-        """
         response = client.models.generate_content(
             model='gemini-3.8-flash',
             contents=chat.message,
@@ -423,14 +424,28 @@ async def chat_with_data(chat: ChatMessage):
             )
         )
         return {"response": response.text}
-    except Exception:
-        # Context-rich offline fallback
-        msg_lower = chat.message.lower()
-        if "juhu" in msg_lower:
-            return {"response": "Juhu Beach currently has 380 kg predicted accumulation with an incoming risk tier of HIGH (82%). Last cleanup was logged 14 hours ago (310 kg removed, 70 kg residual). Recommended inspection window is tomorrow morning during low tide."}
-        elif "versova" in msg_lower:
-            return {"response": "Versova Creek (Sector 04) is flagged as CRITICAL (94% risk) with 520 kg predicted debris accumulation due to strong SW wind vectors (24 km/h) and Mithi outflow. Autonomous Skimmer SKM-01 is assigned for interception."}
-        elif "hungarian" in msg_lower or "fleet" in msg_lower:
-            return {"response": "The Hungarian bipartite matching algorithm assigns fleet vessels (SKM-01, SKM-02, Aqua-Sweep) to coastal sectors minimizing travel distance and matching vessel payload capacity to predicted debris mass."}
-        else:
-            return {"response": f"TIDAL Command Telemetry Active. Monitoring 7 Greater Mumbai sectors with {accuracy.get('average_accuracy_pct', 93.5)}% verified prediction accuracy. Active primary hotspot is Versova Creek Outfall."}
+    except Exception as gemini_err:
+        print(f"Gemini chat failed: {gemini_err}, attempting Groq fallback...")
+        try:
+            groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+            completion = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": chat.message}
+                ],
+                temperature=0.3
+            )
+            return {"response": completion.choices[0].message.content}
+        except Exception as groq_err:
+            print(f"Groq chat fallback failed: {groq_err}")
+            # Context-rich offline fallback
+            msg_lower = chat.message.lower()
+            if "juhu" in msg_lower:
+                return {"response": "Juhu Beach currently has 380 kg predicted accumulation with an incoming risk tier of HIGH (82%). Last cleanup was logged 14 hours ago (310 kg removed, 70 kg residual). Recommended inspection window is tomorrow morning during low tide."}
+            elif "versova" in msg_lower:
+                return {"response": "Versova Creek (Sector 04) is flagged as CRITICAL (94% risk) with 520 kg predicted debris accumulation due to strong SW wind vectors (24 km/h) and Mithi outflow. Autonomous Skimmer SKM-01 is assigned for interception."}
+            elif "hungarian" in msg_lower or "fleet" in msg_lower:
+                return {"response": "The Hungarian bipartite matching algorithm assigns fleet vessels (SKM-01, SKM-02, Aqua-Sweep) to coastal sectors minimizing travel distance and matching vessel payload capacity to predicted debris mass."}
+            else:
+                return {"response": f"TIDAL Command Telemetry Active. Monitoring 7 Greater Mumbai sectors with {accuracy.get('average_accuracy_pct', 93.5)}% verified prediction accuracy. Active primary hotspot is Versova Creek Outfall."}
